@@ -75,12 +75,34 @@ const createRouter = (routes2, rootElement) => {
 const carAnimations = /* @__PURE__ */ new Map();
 const baseUrl$1 = "http://127.0.0.1:3000";
 const driveError = 500;
-const roadWidth = window.innerWidth;
+const correction = 180;
+const startEngine = async (id, name) => {
+  var _a, _b;
+  const currentRoad = document.getElementById(`${id}`);
+  (_a = currentRoad == null ? void 0 : currentRoad.querySelector(".go")) == null ? void 0 : _a.setAttribute("disabled", "");
+  (_b = currentRoad == null ? void 0 : currentRoad.querySelector(".back")) == null ? void 0 : _b.removeAttribute("disabled");
+  try {
+    const response = await fetch(`${baseUrl$1}/engine?id=${id}&status=started`, {
+      method: "PATCH"
+    });
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    const { velocity, distance } = await response.json();
+    const duration = distance / velocity;
+    carAnimation(id, duration);
+    return await drive(id, name);
+  } catch (error) {
+    console.error("Start engine error:", error);
+    stopCarAnimation(id);
+  }
+};
 const carAnimation = (id, duration) => {
   const currentRoad = document.getElementById(`${id}`);
-  const currentCar = currentRoad == null ? void 0 : currentRoad.querySelector("svg path");
-  if (currentCar) {
-    const animation = currentCar.animate([{ left: "0px" }, { left: `${roadWidth}px` }], {
+  const currentCar = currentRoad == null ? void 0 : currentRoad.querySelector(".car-wrapper");
+  if (currentCar && currentRoad) {
+    const roadWidth = currentRoad.offsetWidth - correction;
+    const animation = currentCar.animate([{ transform: "translateX(0px)" }, { transform: `translateX(${roadWidth}px)` }], {
       duration,
       fill: "forwards",
       easing: "linear"
@@ -88,37 +110,22 @@ const carAnimation = (id, duration) => {
     carAnimations.set(id, animation);
   }
 };
-const startEngine = async (id) => {
-  try {
-    const response = await fetch(`${baseUrl$1}/engine?id=${id}&status=started`, {
-      method: "PATCH"
-    });
-    if (!response.ok) {
-      throw new Error(`Ошибка при запуске двигателя: ${response.status}`);
-    }
-    const { velocity } = await response.json();
-    const duration = roadWidth / velocity;
-    carAnimation(id, duration);
-    await drive(id);
-    console.log(velocity, duration, roadWidth);
-  } catch (error) {
-    console.error("Start engine error:", error);
-    stopCarAnimation(id);
-  }
-};
-const drive = async (id) => {
+const drive = async (id, name) => {
   try {
     const response = await fetch(`${baseUrl$1}/engine?id=${id}&status=drive`, {
       method: "PATCH"
     });
     if (!response.ok) {
       if (response.status === driveError) {
-        console.error(`Car has been stopped suddenly. It's engine was broken down`);
+        console.error(`Car ${name} has been stopped suddenly. It's engine was broken down`);
         stopCarAnimation(id);
       }
+      return false;
     }
+    return name;
   } catch (error) {
     console.error("Drive error:", error);
+    return false;
   }
 };
 const stopCarAnimation = (id) => {
@@ -128,33 +135,19 @@ const stopCarAnimation = (id) => {
   }
 };
 const resetCarAnimation = (id) => {
+  var _a, _b;
   const animation = carAnimations.get(id);
   const currentRoad = document.getElementById(`${id}`);
-  const currentCar = currentRoad == null ? void 0 : currentRoad.querySelector("svg path");
+  (_a = currentRoad == null ? void 0 : currentRoad.querySelector(".go")) == null ? void 0 : _a.removeAttribute("disabled");
+  (_b = currentRoad == null ? void 0 : currentRoad.querySelector(".back")) == null ? void 0 : _b.setAttribute("disabled", "");
+  const currentCar = currentRoad == null ? void 0 : currentRoad.querySelector(".car-wrapper");
   if (animation) {
     animation.cancel();
     carAnimations.delete(id);
   }
-  if (currentCar instanceof HTMLElement) {
-    currentCar.style.left = "0px";
+  if (currentCar instanceof HTMLDivElement) {
+    currentCar.style.transform = "translateX(0px)";
   }
-};
-const createSvgElement = (color) => {
-  const svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  svgElement.setAttribute("xml:space", "preserve");
-  svgElement.setAttribute("viewBox", "0 20 550 300");
-  svgElement.setAttribute("width", "80px");
-  svgElement.setAttribute("height", "45px");
-  svgElement.style.position = "relative";
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute(
-    "d",
-    "M188.287 169.428c-28.644-.076-60.908 2.228-98.457 8.01-4.432.62-47.132 24.977-58.644 41.788-11.512 16.812-15.45 48.813-15.45 48.813-3.108 13.105-1.22 34.766-.353 36.872 1.17 4.56 7.78 8.387 19.133 11.154C35.84 295.008 53.29 278.6 74.39 278.574c22.092 0 40 17.91 40 40-.014 1.764-.145 3.525-.392 5.272.59.008 1.26.024 1.82.03l239.266 1.99c-.453-2.405-.685-4.845-.693-7.292 0-22.09 17.91-40 40-40 22.092 0 40 17.91 40 40 0 2.668-.266 5.33-.796 7.944l62.186.517c1.318-22.812 6.86-46.77-7.024-66.72-5.456-7.84-31.93-22.038-99.03-32.66-34.668-17.41-68.503-37.15-105.35-48.462-28.41-5.635-59.26-9.668-96.09-9.765zm-17.197 11.984c5.998.044 11.5.29 16.014.81l7.287 48.352c-41.43-5.093-83.647-9.663-105.964-27.5.35-5.5 7.96-13.462 16.506-16.506 4.84-1.724 40.167-5.346 66.158-5.156zm34.625.348c25.012.264 62.032 2.69 87.502 13.94 12.202 5.65 35.174 18.874 50.537 30.55l-6.35 10.535c-41.706-1.88-97.288-4.203-120.1-6.78l-11.59-48.245zM74.39 294.574a24 24 0 0 0-24 24 24 24 0 0 0 24 24 24 24 0 0 0 24-24 24 24 0 0 0-24-24zm320 0a24 24 0 0 0-24 24 24 24 0 0 0 24 24 24 24 0 0 0 24-24 24 24 0 0 0-24-24z"
-  );
-  path.setAttribute("fill", color);
-  svgElement.appendChild(path);
-  return svgElement;
 };
 function createElement(tag, className, textContent, id, onClick) {
   const element = document.createElement(tag);
@@ -165,6 +158,26 @@ function createElement(tag, className, textContent, id, onClick) {
   return element;
 }
 const generateQueryString = (queryParameters) => queryParameters.length ? `?${queryParameters.map((x) => `${x.key}=${x.value}`).join("&")}` : "";
+const createSvgElement = (color) => {
+  const carWrapper = createElement("div", "car-wrapper");
+  carWrapper.style.display = "inline-block";
+  carWrapper.style.position = "relative";
+  const svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  svgElement.setAttribute("xml:space", "preserve");
+  svgElement.setAttribute("viewBox", "0 45 550 300");
+  svgElement.setAttribute("width", "80px");
+  svgElement.setAttribute("height", "45px");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute(
+    "d",
+    "M188.287 169.428c-28.644-.076-60.908 2.228-98.457 8.01-4.432.62-47.132 24.977-58.644 41.788-11.512 16.812-15.45 48.813-15.45 48.813-3.108 13.105-1.22 34.766-.353 36.872 1.17 4.56 7.78 8.387 19.133 11.154C35.84 295.008 53.29 278.6 74.39 278.574c22.092 0 40 17.91 40 40-.014 1.764-.145 3.525-.392 5.272.59.008 1.26.024 1.82.03l239.266 1.99c-.453-2.405-.685-4.845-.693-7.292 0-22.09 17.91-40 40-40 22.092 0 40 17.91 40 40 0 2.668-.266 5.33-.796 7.944l62.186.517c1.318-22.812 6.86-46.77-7.024-66.72-5.456-7.84-31.93-22.038-99.03-32.66-34.668-17.41-68.503-37.15-105.35-48.462-28.41-5.635-59.26-9.668-96.09-9.765zm-17.197 11.984c5.998.044 11.5.29 16.014.81l7.287 48.352c-41.43-5.093-83.647-9.663-105.964-27.5.35-5.5 7.96-13.462 16.506-16.506 4.84-1.724 40.167-5.346 66.158-5.156zm34.625.348c25.012.264 62.032 2.69 87.502 13.94 12.202 5.65 35.174 18.874 50.537 30.55l-6.35 10.535c-41.706-1.88-97.288-4.203-120.1-6.78l-11.59-48.245zM74.39 294.574a24 24 0 0 0-24 24 24 24 0 0 0 24 24 24 24 0 0 0 24-24 24 24 0 0 0-24-24zm320 0a24 24 0 0 0-24 24 24 24 0 0 0 24 24 24 24 0 0 0 24-24 24 24 0 0 0-24-24z"
+  );
+  path.setAttribute("fill", color);
+  svgElement.appendChild(path);
+  carWrapper.appendChild(svgElement);
+  return carWrapper;
+};
 const baseUrl = "http://127.0.0.1:3000";
 let carIdForChange;
 let previousName;
@@ -183,15 +196,16 @@ const getCar = async (id, name, color, container) => {
   const response = await fetch(`${baseUrl}/garage/${id}`);
   await response.json();
   const road = createElement("div", "road", "", `${id}`);
+  road.style.width = "100%";
   road.style.borderBottom = "1px solid black";
-  road.style.overflow = "visible";
   const carViewManagement = createElement("div");
   const selectCarButton = createElement("button", "select-car btn", "select", "", () => focusOnInput(id, name));
   const removeCarButton = createElement("button", "remove-car btn", "remove", "", () => deleteCar(id));
   const carName = createElement("span", "car-name", name);
   const carDriveManagement = createElement("span");
-  const goButton = createElement("button", "go btn", "GO", "", () => startEngine(id));
-  const stopButton = createElement("button", "stop btn", "BACK", "", () => resetCarAnimation(id));
+  const goButton = createElement("button", "go btn", "GO", "", () => startEngine(id, name));
+  const stopButton = createElement("button", "back btn", "BACK", "", () => resetCarAnimation(id));
+  stopButton.setAttribute("disabled", "");
   carViewManagement.append(selectCarButton, removeCarButton, carName);
   carDriveManagement.append(goButton, stopButton);
   road.append(carViewManagement, carDriveManagement, createSvgElement(color));
@@ -295,12 +309,32 @@ const createControlPanel = () => {
   updateButton.setAttribute("disabled", "");
   updateSection.append(updateCarName, updateCarColor, updateButton);
   const buttonsSection = createElement("div", "buttons-section");
-  const raceButton = createElement("button", "race btn", "RACE");
-  const resetButton = createElement("button", "reset btn", "RESET");
+  const raceButton = createElement("button", "race btn", "RACE", "", startRace);
+  const resetButton = createElement("button", "reset btn", "RESET", "", resetRace);
   const generateCarsButton = createElement("button", "generateCars btn", "GENERATE CARS", "", createHundredCars);
   buttonsSection.append(raceButton, resetButton, generateCarsButton);
   controlPanel.append(createSection, updateSection, buttonsSection);
   return controlPanel;
+};
+const startRace = async () => {
+  const allRoads = document.querySelectorAll(".road");
+  const promises = Array.from(allRoads).map(async (road) => {
+    var _a;
+    const carName = (_a = road.querySelector(".car-name")) == null ? void 0 : _a.textContent;
+    const finished = await startEngine(Number(road.id), carName);
+    if (finished) {
+      return carName;
+    }
+  });
+  const winner = await Promise.any(promises);
+  const name = createElement("div", "", winner);
+  document.body.prepend(name);
+};
+const resetRace = async () => {
+  const allRoads = document.querySelectorAll(".road");
+  allRoads.forEach((road) => {
+    resetCarAnimation(Number(road.id));
+  });
 };
 let currentPage = 1;
 const limit = 7;
@@ -373,21 +407,13 @@ const renderWinners = () => {
 const renderNotFound = () => {
   app.textContent = "404 Not Found";
 };
-const app = document.createElement("div");
+const app = createElement("div");
+app.style.width = "100%";
 document.body.prepend(app);
-const nav = document.createElement("div");
-const garageButton = document.createElement("button");
-const winnersButton = document.createElement("button");
-garageButton.textContent = "Go to Garage";
-winnersButton.textContent = "Go to Winners";
-garageButton.addEventListener("click", () => {
-  window.location.hash = Pages.GARAGE;
-});
-winnersButton.addEventListener("click", () => {
-  window.location.hash = Pages.WINNERS;
-});
-nav.appendChild(garageButton);
-nav.appendChild(winnersButton);
+const nav = createElement("div");
+const garageButton = createElement("button", "garage btn", "Go to Garage", "", () => window.location.hash = Pages.GARAGE);
+const winnersButton = createElement("button", "winners btn", "Go to Winners", "", () => window.location.hash = Pages.WINNERS);
+nav.append(garageButton, winnersButton);
 document.body.prepend(nav);
 const routes = [
   { path: "", callback: () => renderGarage() },
