@@ -40,6 +40,7 @@ const Pages = {
   WINNERS: "/winners",
   NOT_FOUND: "/404"
 };
+const baseUrl = "http://127.0.0.1:3000";
 location.hash = "/";
 const parseUrl = (url) => {
   const pathParts = url.split("/");
@@ -73,7 +74,6 @@ const createRouter = (routes2, rootElement) => {
   return { navigate };
 };
 const carAnimations = /* @__PURE__ */ new Map();
-const baseUrl$1 = "http://127.0.0.1:3000";
 const driveError = 500;
 const correction = 180;
 const startEngine = async (id, name) => {
@@ -82,7 +82,7 @@ const startEngine = async (id, name) => {
   (_a = currentRoad == null ? void 0 : currentRoad.querySelector(".go")) == null ? void 0 : _a.setAttribute("disabled", "");
   (_b = currentRoad == null ? void 0 : currentRoad.querySelector(".back")) == null ? void 0 : _b.removeAttribute("disabled");
   try {
-    const response = await fetch(`${baseUrl$1}/engine?id=${id}&status=started`, {
+    const response = await fetch(`${baseUrl}/engine?id=${id}&status=started`, {
       method: "PATCH"
     });
     if (!response.ok) {
@@ -115,7 +115,7 @@ const carAnimation = (id, duration) => {
   }
 };
 const drive = async (id, name) => {
-  const response = await fetch(`${baseUrl$1}/engine?id=${id}&status=drive`, {
+  const response = await fetch(`${baseUrl}/engine?id=${id}&status=drive`, {
     method: "PATCH"
   });
   if (!response.ok) {
@@ -177,7 +177,6 @@ const createSvgElement = (color) => {
   carWrapper.appendChild(svgElement);
   return carWrapper;
 };
-const baseUrl = "http://127.0.0.1:3000";
 let carIdForChange;
 let previousName;
 const getAmountOfCars = async (queryParameters) => {
@@ -308,23 +307,29 @@ const createControlPanel = () => {
   updateButton.setAttribute("disabled", "");
   updateSection.append(updateCarName, updateCarColor, updateButton);
   const buttonsSection = createElement("div", "buttons-section");
-  const raceButton = createElement("button", "race btn", "RACE", "", startRace);
+  buttonsSection.style.position = "relative";
+  const generateCarsButton = createElement("button", "generateCars btn", "GENERATE CARS", "", createHundredCars);
   const resetButton = createElement("button", "reset btn", "RESET", "", resetRace);
   resetButton.setAttribute("disabled", "");
-  const generateCarsButton = createElement("button", "generateCars btn", "GENERATE CARS", "", createHundredCars);
+  const raceButton = createElement("button", "race btn", "RACE", "", startRace);
   const winnerName = createElement("span", "winner-name", "");
+  winnerName.style.position = "absolute";
+  winnerName.style.right = "15%";
+  winnerName.style.fontSize = "30px";
   buttonsSection.append(generateCarsButton, resetButton, raceButton, winnerName);
   controlPanel.append(createSection, updateSection, buttonsSection);
   return controlPanel;
 };
 const startRace = async () => {
   const allRoads = document.querySelectorAll(".road");
+  const generateCarsButton = document.querySelector(".generateCars");
+  generateCarsButton.setAttribute("disabled", "");
+  const resetButton = document.querySelector(".reset");
+  resetButton.setAttribute("disabled", "");
+  const raceButton = document.querySelector(".race");
+  raceButton.setAttribute("disabled", "");
   const winnerName = document.querySelector(".winner-name");
   winnerName.textContent = "";
-  const raceButton = document.querySelector(".race");
-  const resetButton = document.querySelector(".reset");
-  raceButton.setAttribute("disabled", "");
-  resetButton.setAttribute("disabled", "");
   const promises = Array.from(allRoads).map(async (road) => {
     var _a;
     const carName = (_a = road.querySelector(".car-name")) == null ? void 0 : _a.textContent;
@@ -340,6 +345,8 @@ const resetRace = async () => {
   winnerName.textContent = "";
   const raceButton = document.querySelector(".race");
   const resetButton = document.querySelector(".reset");
+  const generateCarsButton = document.querySelector(".generateCars");
+  generateCarsButton.removeAttribute("disabled");
   raceButton.removeAttribute("disabled");
   resetButton.setAttribute("disabled", "");
   allRoads.forEach((road) => {
@@ -367,6 +374,13 @@ const renderGarageLayout = (totalCount2, totalPages) => {
   const carsContainer = createElement("div", "car-container");
   app.append(createControlPanel(), pageName, pageNumber, previousPageButton, nextPageButton, carsContainer);
 };
+const updateGarageContent = async () => {
+  const carsContainer = document.querySelector(".car-container");
+  if (carsContainer instanceof HTMLDivElement) {
+    carsContainer.innerHTML = "";
+    await getAllCars(carsContainer, currentPage, limit);
+  }
+};
 const showPreviousPage = () => {
   if (currentPage > 1) {
     currentPage--;
@@ -379,24 +393,23 @@ const showNextPage = () => {
     renderGarage();
   }
 };
-const updateGarageContent = async () => {
-  const carsContainer = document.querySelector(".car-container");
-  if (carsContainer instanceof HTMLDivElement) {
-    carsContainer.innerHTML = "";
-    await getAllCars(carsContainer, currentPage, limit);
-  }
-};
 const createHundredCars = async () => {
   const carBrands = ["Volvo", "Toyota", "BMW", "Ford", "Nissan", "Hyundai", "Audi", "Mazda", "Kia", "Volkswagen"];
   const carModels = ["XC 90", "Camry", "X5", "Mustang", "Qashqai", "Elantra", "Q7", "CX-5", "Soul", "Passat"];
   const carColors = ["#DC143C", "#1E90FF", "#00FF00", "#2F4F4F", "#87CEEB", "#C0C0C0", "#FFD700", "#FF8C00", "#A0522D", "#4B0082"];
-  function getRandomItem(array) {
-    return array[Math.floor(Math.random() * array.length)];
-  }
-  const cars = Array.from({ length: 100 }, () => ({
-    name: `${getRandomItem(carBrands)} ${getRandomItem(carModels)}`,
-    color: getRandomItem(carColors)
-  }));
+  const getRandomValue = (array) => {
+    const randomIndex = Math.floor(Math.random() * array.length);
+    return array[randomIndex];
+  };
+  const cars = Array.from({ length: 100 }, () => {
+    const brand = getRandomValue(carBrands);
+    const model = getRandomValue(carModels);
+    const color = getRandomValue(carColors);
+    return {
+      name: `${brand} ${model}`,
+      color
+    };
+  });
   await Promise.all(cars.map((car) => createCar(car)));
   await renderGarage();
   const container = document.querySelector(".car-container");
