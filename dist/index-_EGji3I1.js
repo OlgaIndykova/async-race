@@ -91,7 +91,11 @@ const startEngine = async (id, name) => {
     const { velocity, distance } = await response.json();
     const duration = distance / velocity;
     carAnimation(id, duration);
-    return await drive(id, name);
+    const result = await drive(id, name);
+    if (result) {
+      return Promise.resolve(name);
+    }
+    return Promise.reject();
   } catch (error) {
     console.error("Start engine error:", error);
     stopCarAnimation(id);
@@ -111,22 +115,17 @@ const carAnimation = (id, duration) => {
   }
 };
 const drive = async (id, name) => {
-  try {
-    const response = await fetch(`${baseUrl$1}/engine?id=${id}&status=drive`, {
-      method: "PATCH"
-    });
-    if (!response.ok) {
-      if (response.status === driveError) {
-        console.error(`Car ${name} has been stopped suddenly. It's engine was broken down`);
-        stopCarAnimation(id);
-      }
-      return false;
+  const response = await fetch(`${baseUrl$1}/engine?id=${id}&status=drive`, {
+    method: "PATCH"
+  });
+  if (!response.ok) {
+    if (response.status === driveError) {
+      console.error(`Car ${name} has been stopped suddenly. It's engine was broken down`);
     }
-    return name;
-  } catch (error) {
-    console.error("Drive error:", error);
+    stopCarAnimation(id);
     return false;
   }
+  return true;
 };
 const stopCarAnimation = (id) => {
   const animation = carAnimations.get(id);
@@ -311,27 +310,38 @@ const createControlPanel = () => {
   const buttonsSection = createElement("div", "buttons-section");
   const raceButton = createElement("button", "race btn", "RACE", "", startRace);
   const resetButton = createElement("button", "reset btn", "RESET", "", resetRace);
+  resetButton.setAttribute("disabled", "");
   const generateCarsButton = createElement("button", "generateCars btn", "GENERATE CARS", "", createHundredCars);
-  buttonsSection.append(raceButton, resetButton, generateCarsButton);
+  const winnerName = createElement("span", "winner-name", "");
+  buttonsSection.append(generateCarsButton, resetButton, raceButton, winnerName);
   controlPanel.append(createSection, updateSection, buttonsSection);
   return controlPanel;
 };
 const startRace = async () => {
   const allRoads = document.querySelectorAll(".road");
+  const winnerName = document.querySelector(".winner-name");
+  winnerName.textContent = "";
+  const raceButton = document.querySelector(".race");
+  const resetButton = document.querySelector(".reset");
+  raceButton.setAttribute("disabled", "");
+  resetButton.setAttribute("disabled", "");
   const promises = Array.from(allRoads).map(async (road) => {
     var _a;
     const carName = (_a = road.querySelector(".car-name")) == null ? void 0 : _a.textContent;
-    const finished = await startEngine(Number(road.id), carName);
-    if (finished) {
-      return carName;
-    }
+    return await startEngine(Number(road.id), carName);
   });
-  const winner = await Promise.any(promises);
-  const name = createElement("div", "", winner);
-  document.body.prepend(name);
+  let winner = await Promise.any(promises);
+  winnerName.textContent = `!!!  ${winner} won the race  !!!`;
+  resetButton.removeAttribute("disabled");
 };
 const resetRace = async () => {
   const allRoads = document.querySelectorAll(".road");
+  const winnerName = document.querySelector(".winner-name");
+  winnerName.textContent = "";
+  const raceButton = document.querySelector(".race");
+  const resetButton = document.querySelector(".reset");
+  raceButton.removeAttribute("disabled");
+  resetButton.setAttribute("disabled", "");
   allRoads.forEach((road) => {
     resetCarAnimation(Number(road.id));
   });
