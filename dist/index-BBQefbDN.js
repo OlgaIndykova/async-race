@@ -398,6 +398,7 @@ const createHundredCars = async () => {
     color: getRandomItem(carColors)
   }));
   await Promise.all(cars.map((car) => createCar(car)));
+  await renderGarage();
   const container = document.querySelector(".car-container");
   if (container instanceof HTMLDivElement) {
     container.innerHTML = "";
