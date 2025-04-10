@@ -73,14 +73,32 @@ const createRouter = (routes2, rootElement) => {
   window.addEventListener("hashchange", () => navigate(getCurrentPath()));
   return { navigate };
 };
+function createElement(tag, className, textContent, id, onClick) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (textContent) element.textContent = textContent;
+  if (id) element.id = id;
+  if (onClick) element.addEventListener("click", onClick);
+  return element;
+}
+function valueIsDefined(value) {
+  if (value === null || value === void 0) {
+    throw new Error(`The value mustn't be null or undefined`);
+  }
+}
+const generateQueryString = (queryParameters) => queryParameters.length ? `?${queryParameters.map((x) => `${x.key}=${x.value}`).join("&")}` : "";
 const carAnimations = /* @__PURE__ */ new Map();
 const driveError = 500;
 const correction = 180;
 const startEngine = async (id, name) => {
-  var _a, _b;
   const currentRoad = document.getElementById(`${id}`);
-  (_a = currentRoad == null ? void 0 : currentRoad.querySelector(".go")) == null ? void 0 : _a.setAttribute("disabled", "");
-  (_b = currentRoad == null ? void 0 : currentRoad.querySelector(".back")) == null ? void 0 : _b.removeAttribute("disabled");
+  valueIsDefined(currentRoad);
+  const goButton = currentRoad.querySelector(".go");
+  valueIsDefined(goButton);
+  goButton.setAttribute("disabled", "");
+  const backButton = currentRoad.querySelector(".back");
+  valueIsDefined(backButton);
+  backButton.removeAttribute("disabled");
   try {
     const response = await fetch(`${baseUrl}/engine?id=${id}&status=started`, {
       method: "PATCH"
@@ -97,22 +115,22 @@ const startEngine = async (id, name) => {
     }
     return Promise.reject();
   } catch (error) {
-    console.error("Start engine error:", error);
+    console.error("Error:", error);
     stopCarAnimation(id);
   }
 };
 const carAnimation = (id, duration) => {
   const currentRoad = document.getElementById(`${id}`);
-  const currentCar = currentRoad == null ? void 0 : currentRoad.querySelector(".car-wrapper");
-  if (currentCar && currentRoad) {
-    const roadWidth = currentRoad.offsetWidth - correction;
-    const animation = currentCar.animate([{ transform: "translateX(0px)" }, { transform: `translateX(${roadWidth}px)` }], {
-      duration,
-      fill: "forwards",
-      easing: "linear"
-    });
-    carAnimations.set(id, animation);
-  }
+  valueIsDefined(currentRoad);
+  const currentCar = currentRoad.querySelector(".car-wrapper");
+  valueIsDefined(currentCar);
+  const roadWidth = currentRoad.offsetWidth - correction;
+  const animation = currentCar.animate([{ transform: "translateX(0px)" }, { transform: `translateX(${roadWidth}px)` }], {
+    duration,
+    fill: "forwards",
+    easing: "linear"
+  });
+  carAnimations.set(id, animation);
 };
 const drive = async (id, name) => {
   const response = await fetch(`${baseUrl}/engine?id=${id}&status=drive`, {
@@ -134,12 +152,16 @@ const stopCarAnimation = (id) => {
   }
 };
 const resetCarAnimation = (id) => {
-  var _a, _b;
   const animation = carAnimations.get(id);
   const currentRoad = document.getElementById(`${id}`);
-  (_a = currentRoad == null ? void 0 : currentRoad.querySelector(".go")) == null ? void 0 : _a.removeAttribute("disabled");
-  (_b = currentRoad == null ? void 0 : currentRoad.querySelector(".back")) == null ? void 0 : _b.setAttribute("disabled", "");
-  const currentCar = currentRoad == null ? void 0 : currentRoad.querySelector(".car-wrapper");
+  valueIsDefined(currentRoad);
+  const goButton = currentRoad.querySelector(".go");
+  valueIsDefined(goButton);
+  goButton.removeAttribute("disabled");
+  const backButton = currentRoad.querySelector(".back");
+  valueIsDefined(backButton);
+  backButton.setAttribute("disabled", "");
+  const currentCar = currentRoad.querySelector(".car-wrapper");
   if (animation) {
     animation.cancel();
     carAnimations.delete(id);
@@ -148,15 +170,6 @@ const resetCarAnimation = (id) => {
     currentCar.style.transform = "translateX(0px)";
   }
 };
-function createElement(tag, className, textContent, id, onClick) {
-  const element = document.createElement(tag);
-  if (className) element.className = className;
-  if (textContent) element.textContent = textContent;
-  if (id) element.id = id;
-  if (onClick) element.addEventListener("click", onClick);
-  return element;
-}
-const generateQueryString = (queryParameters) => queryParameters.length ? `?${queryParameters.map((x) => `${x.key}=${x.value}`).join("&")}` : "";
 const createSvgElement = (color) => {
   const carWrapper = createElement("div", "car-wrapper");
   carWrapper.style.display = "inline-block";
@@ -229,14 +242,13 @@ const changeCar = async (id, body) => {
   });
   await response.json();
   const currentRoad = document.getElementById(`${id}`);
-  const currentCarName = currentRoad == null ? void 0 : currentRoad.querySelector(".car-name");
-  const currentCarColor = currentRoad == null ? void 0 : currentRoad.querySelector("svg path");
-  if (currentCarName) {
-    currentCarName.textContent = body.name;
-  }
-  if (currentCarColor) {
-    currentCarColor.setAttribute("fill", body.color);
-  }
+  valueIsDefined(currentRoad);
+  const currentCarName = currentRoad.querySelector(".car-name");
+  valueIsDefined(currentCarName);
+  currentCarName.textContent = body.name;
+  const currentCarColor = currentRoad.querySelector("svg path");
+  valueIsDefined(currentCarColor);
+  currentCarColor.setAttribute("fill", body.color);
 };
 const deleteCar = async (id) => {
   const response = await fetch(`${baseUrl}/garage/${id}`, {
@@ -251,9 +263,8 @@ const focusOnInput = (id, name) => {
     input.value = "";
   }
   const button = document.querySelector(".update");
-  if (button) {
-    button.removeAttribute("disabled");
-  }
+  valueIsDefined(button);
+  button.removeAttribute("disabled");
   const updateCarName = document.querySelector(".updateCar-name");
   if (updateCarName instanceof HTMLInputElement) {
     updateCarName.focus();
@@ -323,16 +334,21 @@ const createControlPanel = () => {
 const startRace = async () => {
   const allRoads = document.querySelectorAll(".road");
   const generateCarsButton = document.querySelector(".generateCars");
+  valueIsDefined(generateCarsButton);
   generateCarsButton.setAttribute("disabled", "");
   const resetButton = document.querySelector(".reset");
+  valueIsDefined(resetButton);
   resetButton.setAttribute("disabled", "");
   const raceButton = document.querySelector(".race");
+  valueIsDefined(raceButton);
   raceButton.setAttribute("disabled", "");
   const winnerName = document.querySelector(".winner-name");
+  valueIsDefined(winnerName);
   winnerName.textContent = "";
-  const promises = Array.from(allRoads).map(async (road) => {
-    var _a;
-    const carName = (_a = road.querySelector(".car-name")) == null ? void 0 : _a.textContent;
+  const promises = Array.from(allRoads).map(async (item) => {
+    const road = item.querySelector(".car-name");
+    valueIsDefined(road);
+    const carName = road.textContent ? road.textContent : "";
     return await startEngine(Number(road.id), carName);
   });
   let winner = await Promise.any(promises);
@@ -342,10 +358,14 @@ const startRace = async () => {
 const resetRace = async () => {
   const allRoads = document.querySelectorAll(".road");
   const winnerName = document.querySelector(".winner-name");
+  valueIsDefined(winnerName);
   winnerName.textContent = "";
   const raceButton = document.querySelector(".race");
+  valueIsDefined(raceButton);
   const resetButton = document.querySelector(".reset");
+  valueIsDefined(resetButton);
   const generateCarsButton = document.querySelector(".generateCars");
+  valueIsDefined(generateCarsButton);
   generateCarsButton.removeAttribute("disabled");
   raceButton.removeAttribute("disabled");
   resetButton.setAttribute("disabled", "");
@@ -422,8 +442,12 @@ const createHundredCars = async () => {
     { key: "_limit", value: limit }
   ]);
   const totalPages = Math.ceil(totalCount2 / limit);
-  document.querySelector(".title").textContent = `Garage  (${totalCount2})`;
-  document.querySelector(".page-number").textContent = `Page #${currentPage} from ${totalPages}`;
+  const pageTitle = document.querySelector(".title");
+  valueIsDefined(pageTitle);
+  pageTitle.textContent = `Garage  (${totalCount2})`;
+  const pageNumber = document.querySelector(".page-number");
+  valueIsDefined(pageNumber);
+  pageNumber.textContent = `Page #${currentPage} from ${totalPages}`;
 };
 const renderWinners = () => {
   app.textContent = "Winners";
