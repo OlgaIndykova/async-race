@@ -99,25 +99,16 @@ const startEngine = async (id, name) => {
   const backButton = currentRoad.querySelector(".back");
   valueIsDefined(backButton);
   backButton.removeAttribute("disabled");
-  try {
-    const response = await fetch(`${baseUrl}/engine?id=${id}&status=started`, {
-      method: "PATCH"
-    });
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-    const { velocity, distance } = await response.json();
-    const duration = distance / velocity;
-    carAnimation(id, duration);
-    const result = await drive(id, name);
-    if (result) {
-      return Promise.resolve(name);
-    }
-    return Promise.reject();
-  } catch (error) {
-    console.error("Error:", error);
-    stopCarAnimation(id);
+  const response = await fetch(`${baseUrl}/engine?id=${id}&status=started`, {
+    method: "PATCH"
+  });
+  if (!response.ok) {
+    throw new Error(`Error: ${response.status}`);
   }
+  const { velocity, distance } = await response.json();
+  const duration = distance / velocity;
+  carAnimation(id, duration);
+  return await drive(id, name);
 };
 const carAnimation = (id, duration) => {
   const currentRoad = document.getElementById(`${id}`);
@@ -133,17 +124,22 @@ const carAnimation = (id, duration) => {
   carAnimations.set(id, animation);
 };
 const drive = async (id, name) => {
-  const response = await fetch(`${baseUrl}/engine?id=${id}&status=drive`, {
-    method: "PATCH"
-  });
-  if (!response.ok) {
-    if (response.status === driveError) {
-      console.error(`Car ${name} has been stopped suddenly. It's engine was broken down`);
+  try {
+    const response = await fetch(`${baseUrl}/engine?id=${id}&status=drive`, {
+      method: "PATCH"
+    });
+    if (!response.ok) {
+      if (response.status === driveError) {
+        console.error(`Car ${name} has been stopped suddenly. It's engine was broken down`);
+      }
+      stopCarAnimation(id);
+      return Promise.reject();
     }
+    return name;
+  } catch (error) {
+    console.error("Drive error:", error);
     stopCarAnimation(id);
-    return false;
   }
-  return true;
 };
 const stopCarAnimation = (id) => {
   const animation = carAnimations.get(id);
@@ -349,10 +345,14 @@ const startRace = async () => {
     const road = item.querySelector(".car-name");
     valueIsDefined(road);
     const carName = road.textContent ? road.textContent : "";
-    return await startEngine(Number(road.id), carName);
+    return await startEngine(Number(item.id), carName);
   });
-  let winner = await Promise.any(promises);
-  winnerName.textContent = `!!!  ${winner} won the race  !!!`;
+  try {
+    const winner = await Promise.any(promises);
+    winnerName.textContent = `!!! ${winner} won the race !!!`;
+  } catch {
+    winnerName.textContent = "No car reached the finish line!";
+  }
   resetButton.removeAttribute("disabled");
 };
 const resetRace = async () => {
@@ -432,11 +432,6 @@ const createHundredCars = async () => {
   });
   await Promise.all(cars.map((car) => createCar(car)));
   await renderGarage();
-  const container = document.querySelector(".car-container");
-  if (container instanceof HTMLDivElement) {
-    container.innerHTML = "";
-    await getAllCars(container, currentPage, limit);
-  }
   const totalCount2 = await getAmountOfCars([
     { key: "_page", value: 0 },
     { key: "_limit", value: limit }
